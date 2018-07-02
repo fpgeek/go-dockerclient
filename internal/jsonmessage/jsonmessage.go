@@ -14,7 +14,7 @@ import (
 
 	"github.com/Nvveen/Gotty"
 	"github.com/docker/go-units"
-	"github.com/fsouza/go-dockerclient/internal/term"
+	"github.com/fpgeek/go-dockerclient/internal/term"
 )
 
 // RFC3339NanoFixed is time.RFC3339Nano with nanoseconds padded using zeros to

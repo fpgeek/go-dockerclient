@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/swarm"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/fpgeek/go-dockerclient"
 	"github.com/gorilla/mux"
 )
 
