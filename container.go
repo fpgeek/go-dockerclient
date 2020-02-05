@@ -790,6 +790,15 @@ type HostConfig struct {
 	Mounts               []HostMount            `json:"Mounts,omitempty" yaml:"Mounts,omitempty" toml:"Mounts,omitempty"`
 	Init                 bool                   `json:",omitempty" yaml:",omitempty"`
 	Runtime              string                 `json:"Runtime,omitempty" yaml:"Runtime,omitempty" toml:"Runtime,omitempty"`
+	DeviceRequests       []DeviceRequest        `json:"DeviceRequests,omitempty" yaml:"DeviceRequests,omitempty" toml:"DeviceRequests,omitempty"`
+}
+
+type DeviceRequest struct {
+	Driver       string            // Name of device driver
+	Count        int               // Number of devices to request (-1 = All)
+	DeviceIDs    []string          // List of device IDs as recognizable by the device driver
+	Capabilities [][]string        // An OR list of AND lists of device capabilities (e.g. "gpu")
+	Options      map[string]string // Options to pass onto the device driver
 }
 
 // NetworkingConfig represents the container's networking configuration for each of its interfaces
