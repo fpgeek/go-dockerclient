@@ -1,5 +1,8 @@
 # temporary symlink for testing
 testing/data/symlink
+<<<<<<< HEAD
 Gopkg.lock
 vendor/
 .idea
+=======
+>>>>>>> upstream/master

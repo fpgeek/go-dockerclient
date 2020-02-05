@@ -9,60 +9,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
 	"reflect"
-
 	"testing"
 )
 
-var (
-	expectPluginDetail = PluginDetail{
-		ID:     "5724e2c8652da337ab2eedd19fc6fc0ec908e4bd907c7421bf6a8dfc70c4c078",
-		Name:   "tiborvass/sample-volume-plugin",
-		Tag:    "latest",
-		Active: true,
-		Settings: PluginSettings{
-			Env:     []string{"DEBUG=0"},
-			Args:    nil,
-			Devices: nil,
+var expectPluginDetail = PluginDetail{
+	ID:     "5724e2c8652da337ab2eedd19fc6fc0ec908e4bd907c7421bf6a8dfc70c4c078",
+	Name:   "tiborvass/sample-volume-plugin",
+	Tag:    "latest",
+	Active: true,
+	Settings: PluginSettings{
+		Env:     []string{"DEBUG=0"},
+		Args:    nil,
+		Devices: nil,
+	},
+	Config: PluginConfig{
+		Description:   "A sample volume plugin for Docker",
+		Documentation: "https://docs.docker.com/engine/extend/plugins/",
+		Interface: PluginInterface{
+			Types:  []string{"docker.volumedriver/1.0"},
+			Socket: "plugins.sock",
 		},
-		Config: PluginConfig{
-			Description:   "A sample volume plugin for Docker",
-			Documentation: "https://docs.docker.com/engine/extend/plugins/",
-			Interface: PluginInterface{
-				Types:  []string{"docker.volumedriver/1.0"},
-				Socket: "plugins.sock",
-			},
-			Entrypoint: []string{
-				"/usr/bin/sample-volume-plugin",
-				"/data",
-			},
-			WorkDir:         "",
-			User:            PluginUser{},
-			Network:         PluginNetwork{Type: ""},
-			Linux:           PluginLinux{Capabilities: nil, AllowAllDevices: false, Devices: nil},
-			Mounts:          nil,
-			PropagatedMount: "/data",
-			Env: []PluginEnv{
-				{
-					Name:        "DEBUG",
-					Description: "If set, prints debug messages",
-					Settable:    nil,
-					Value:       "0",
-				},
-			},
-			Args: PluginArgs{
-				Name:        "args",
-				Description: "command line arguments",
+		Entrypoint: []string{
+			"/usr/bin/sample-volume-plugin",
+			"/data",
+		},
+		WorkDir:         "",
+		User:            PluginUser{},
+		Network:         PluginNetwork{Type: ""},
+		Linux:           PluginLinux{Capabilities: nil, AllowAllDevices: false, Devices: nil},
+		Mounts:          nil,
+		PropagatedMount: "/data",
+		Env: []PluginEnv{
+			{
+				Name:        "DEBUG",
+				Description: "If set, prints debug messages",
 				Settable:    nil,
-				Value:       []string{},
+				Value:       "0",
 			},
 		},
-	}
-)
+		Args: PluginArgs{
+			Name:        "args",
+			Description: "command line arguments",
+			Settable:    nil,
+			Value:       []string{},
+		},
+	},
+}
 
-const (
-	jsonPluginDetail = `{
+const jsonPluginDetail = `{
     "Id": "5724e2c8652da337ab2eedd19fc6fc0ec908e4bd907c7421bf6a8dfc70c4c078",
     "Name": "tiborvass/sample-volume-plugin",
     "Tag": "latest",
@@ -115,7 +110,6 @@ const (
       }
     }
   }`
-)
 
 func TestListPlugins(t *testing.T) {
 	t.Parallel()
@@ -151,7 +145,8 @@ func TestListFilteredPlugins(t *testing.T) {
 				"capability": {"volumedriver"},
 				"enabled":    {"true"},
 			},
-			Context: context.Background()})
+			Context: context.Background(),
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +157,7 @@ func TestListFilteredPlugins(t *testing.T) {
 
 func TestListFilteredPluginsFailure(t *testing.T) {
 	t.Parallel()
-	var tests = []struct {
+	tests := []struct {
 		status  int
 		message string
 	}{
@@ -193,13 +188,46 @@ func TestGetPluginPrivileges(t *testing.T) {
 			Name:        "network",
 			Description: "",
 			Value:       []string{"host"},
-		}}
+		},
+	}
 	pluginPrivileges, err := client.GetPluginPrivileges(name, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(pluginPrivileges, expected) {
 		t.Errorf("PluginPrivileges: Expected %#v. Got %#v.", expected, pluginPrivileges)
+	}
+}
+
+func TestGetPluginPrivilegesWithOptions(t *testing.T) {
+	t.Parallel()
+	remote := "test_plugin"
+	jsonPluginPrivileges := `[ { "Name": "network", "Description": "", "Value": [ "host" ] }]`
+	fakeRT := &FakeRoundTripper{message: jsonPluginPrivileges, status: http.StatusNoContent}
+	client := newTestClient(fakeRT)
+	expected := []PluginPrivilege{
+		{
+			Name:        "network",
+			Description: "",
+			Value:       []string{"host"},
+		},
+	}
+	pluginPrivileges, err := client.GetPluginPrivilegesWithOptions(GetPluginPrivilegesOptions{
+		Remote:  remote,
+		Context: context.Background(),
+		Auth:    AuthConfiguration{Username: "XY"},
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(pluginPrivileges, expected) {
+		t.Errorf("PluginPrivileges: Expected %#v. Got %#v.", expected, pluginPrivileges)
+	}
+	req := fakeRT.requests[0]
+	authHeader := req.Header.Get("X-Registry-Auth")
+	if authHeader == "" {
+		t.Errorf("InstallImage: unexpected empty X-Registry-Auth header: %v", authHeader)
 	}
 }
 
@@ -214,13 +242,20 @@ func TestInstallPlugins(t *testing.T) {
 			},
 		},
 		Context: context.Background(),
-		Auth:    AuthConfiguration{},
+		Auth:    AuthConfiguration{Username: "XY"},
 	}
 
-	client := newTestClient(&FakeRoundTripper{message: "", status: http.StatusOK})
+	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
+	client := newTestClient(fakeRT)
 	err := client.InstallPlugins(opts)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	req := fakeRT.requests[0]
+	authHeader := req.Header.Get("X-Registry-Auth")
+	if authHeader == "" {
+		t.Errorf("InstallImage: unexpected empty X-Registry-Auth header: %v", authHeader)
 	}
 }
 
@@ -251,6 +286,24 @@ func TestRemovePlugin(t *testing.T) {
 	}
 	if !reflect.DeepEqual(pluginPrivileges, &expectPluginDetail) {
 		t.Errorf("RemovePlugin: Expected %#v. Got %#v.", &expectPluginDetail, pluginPrivileges)
+	}
+}
+
+func TestRemovePluginNoResponse(t *testing.T) {
+	opts := RemovePluginOptions{
+		Name:    "test_plugin",
+		Force:   false,
+		Context: context.Background(),
+	}
+	fakeRT := &FakeRoundTripper{message: "", status: http.StatusNoContent}
+	client := newTestClient(fakeRT)
+	plugindetails, err := client.RemovePlugin(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if plugindetails != nil {
+		t.Errorf("RemovePlugin: Expected %#v. Got %#v.", nil, plugindetails)
 	}
 }
 

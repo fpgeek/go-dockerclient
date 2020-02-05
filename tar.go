@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/fileutils"
-	"github.com/fpgeek/go-dockerclient/internal/archive"
 )
 
 func createTarStream(srcPath, dockerfilePath string) (io.ReadCloser, error) {
